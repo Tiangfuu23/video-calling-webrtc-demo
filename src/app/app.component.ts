@@ -1,10 +1,14 @@
 import { Component } from '@angular/core';
-
+import { SupabaseService } from './services/supabase.service';
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
 export class AppComponent {
-  title = 'video-calling-webrtc-demo';
+  title = 'Video Calling';
+
+  constructor(){
+
+  }
 }

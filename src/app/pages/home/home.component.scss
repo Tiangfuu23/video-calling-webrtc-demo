@@ -1,0 +1,19 @@
+.user-list-card-container{
+  width: 400px;
+  max-height: 60%;
+  overflow: auto;
+}
+
+:host {
+  ::-webkit-scrollbar {
+    width: 3px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 2rem;
+  }
+  ::-webkit-scrollbar-track{
+    color: #fff;
+    background-color: #fff;
+  }
+}

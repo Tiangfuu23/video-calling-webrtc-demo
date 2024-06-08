@@ -1,0 +1,14 @@
+<div class="container w-full h-full flex align-items-center justify-content-center surface">
+  <input *ngIf="!userInfo.isConnected" type="text" pInputText [(ngModel)]="userInfo.username" placeholder="Enter your name" (keydown.enter)="handleLogin()"/>
+  <div class="user-list-card-container border-round shadow-1" *ngIf="userInfo.isConnected">
+    <p-card header="Online users">
+      <ng-container *ngFor="let user of onlineUserList; let i = index">
+       <div class="user flex justify-content-between align-items-center padding-2 mb-2 surface-border border-bottom-1">
+          <span>{{user.fullname}}</span>
+          <p-button icon="pi pi-phone" [rounded]="true" [text]="true" severity="success" (onClick)="openCall(user)"/>
+       </div>
+      </ng-container>
+  </p-card>
+  </div>
+</div>
+<p-toast />
