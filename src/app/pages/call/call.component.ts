@@ -37,7 +37,7 @@ export class CallComponent implements OnInit, OnDestroy {
 
   // debug
   haveAnswer: boolean = false;
-  pendingIceCandidatesInCaller = [];
+  pendingIceCandidates: any[] = [];
   constructor(
     private supabaseService: SupabaseService,
     private messageService: MessageService,
@@ -51,10 +51,9 @@ export class CallComponent implements OnInit, OnDestroy {
     this.userInfo = JSON.parse(localStorage.getItem(StorageKeys.USER_INFO)!);
     this.callStateService.getAuthData((call) => {
       this.call = call
-      // console.log('call', this.call);
-      // console.log('user info', this.userInfo);
       if(!call.isCalling) this.router.navigate(['/']);
-
+      this.pendingIceCandidates = [];
+      this.peerConnection = new RTCPeerConnection(this.configuration);
       this.subscribeCallTable();
       if(call.callerUserId !== -1 && call.callerUserId === this.userInfo.userId) {
         this.makeCall();
@@ -72,9 +71,8 @@ export class CallComponent implements OnInit, OnDestroy {
   }
 
   async makeCall() {
-    this.pendingIceCandidatesInCaller = [];
     this.haveAnswer = false;
-    this.peerConnection = new RTCPeerConnection(this.configuration);
+    // this.peerConnection = new RTCPeerConnection(this.configuration);
     this.listenOnConnectionStateChange();
     this.initCamera();
     this.listenOnIceCandidate(true, false);
@@ -83,7 +81,7 @@ export class CallComponent implements OnInit, OnDestroy {
   }
   async handleIncomingCall(){
     this.currentCall = await this.supabaseService.getCallById(this.call.callId)
-    this.peerConnection = new RTCPeerConnection(this.configuration);
+    // this.peerConnection = new RTCPeerConnection(this.configuration);
     this.listenOnConnectionStateChange();
     this.initCamera();
     this.listenOnRemoteTrack();
@@ -204,9 +202,19 @@ export class CallComponent implements OnInit, OnDestroy {
       }
       if(call.calleeId === this.userInfo.userId && call.offerCandidates){
         console.log('New offer ice Candidate', call);
-        await this.peerConnection.addIceCandidate(
-          JSON.parse(call.answerCandidates)
-        );
+        try{
+          await this.peerConnection.addIceCandidate(
+            JSON.parse(call.answerCandidates)
+          );
+          if(this.pendingIceCandidates.length > 0){
+            this.pendingIceCandidates.forEach( async (c) => {
+              await this.peerConnection.addIceCandidate(JSON.parse(c));
+            })
+          }
+        }catch(e){
+          console.log(e);
+          this.pendingIceCandidates.push(call.answerCandidates)
+        }
       }
     };
     this.supabaseService.subscribeCallTable(handleUpdateCallCb);
