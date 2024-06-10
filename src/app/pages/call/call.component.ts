@@ -33,6 +33,11 @@ export class CallComponent implements OnInit, OnDestroy {
     username: '',
     userId: -1,
   };
+  // makingOffer: boolean = false;
+
+  // debug
+  haveAnswer: boolean = false;
+  pendingIceCandidatesInCaller = [];
   constructor(
     private supabaseService: SupabaseService,
     private messageService: MessageService,
@@ -67,21 +72,23 @@ export class CallComponent implements OnInit, OnDestroy {
   }
 
   async makeCall() {
+    this.pendingIceCandidatesInCaller = [];
+    this.haveAnswer = false;
     this.peerConnection = new RTCPeerConnection(this.configuration);
-    this.listenOnIceCandidate();
     this.listenOnConnectionStateChange();
     this.initCamera();
+    this.listenOnIceCandidate(true, false);
     this.listenOnNegotiationNeededInCaller();
     this.listenOnRemoteTrack();
   }
   async handleIncomingCall(){
     this.currentCall = await this.supabaseService.getCallById(this.call.callId)
     this.peerConnection = new RTCPeerConnection(this.configuration);
-    this.listenOnIceCandidate();
     this.listenOnConnectionStateChange();
     this.initCamera();
     this.listenOnRemoteTrack();
-    this.listenOnNegotiationNeedInCallee();
+    this.listenOnIceCandidate(false, true);
+    this.listenOnNegotiationNeededInCallee();
   }
   async initCamera() {
     try {
@@ -102,56 +109,69 @@ export class CallComponent implements OnInit, OnDestroy {
 
   listenOnNegotiationNeededInCaller() {
     this.peerConnection.onnegotiationneeded = async () => {
-      const offer = await this.peerConnection.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
-      await this.peerConnection.setLocalDescription(offer);
-      console.log({
-        callerId: this.call.callerUserId,
-        calleeId: this.call.calleeUserId,
-        offer: JSON.stringify(offer),
-      });
-      this.currentCall = await this.supabaseService.createCall({
-        callerId: this.call.callerUserId,
-        calleeId: this.call.calleeUserId,
-        offer: JSON.stringify(offer),
-      });
-      console.log('CurrentCall', this.currentCall);
+      try {
+        // this.makingOffer = true;
+        const offer = await this.peerConnection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+        this.currentCall = await this.supabaseService.createCall({
+          callerId: this.call.callerUserId,
+          calleeId: this.call.calleeUserId,
+          offer: JSON.stringify(offer)
+        });
+        await this.peerConnection.setLocalDescription(offer);
+        console.log('CurrentCall', this.currentCall);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        // this.makingOffer = false;
+      }
     };
   }
 
-  listenOnNegotiationNeedInCallee() {
+  listenOnNegotiationNeededInCallee() {
     this.peerConnection.onnegotiationneeded = async () => {
-      console.log('NegotiationCalleeeee Run!!');
       const offer = JSON.parse(this.currentCall.offer);
       await this.peerConnection.setRemoteDescription(offer);
       const answer = await this.peerConnection.createAnswer();
-      await this.peerConnection.setLocalDescription(answer);
       await this.supabaseService.updateCall({
         ...this.currentCall,
         answer: JSON.stringify(answer),
       });
+      await this.peerConnection.setLocalDescription(answer);
     };
   }
 
-  listenOnIceCandidate() {
-    this.peerConnection.onicecandidate = ({ candidate }) => {
+  listenOnIceCandidate(isOffering: boolean, isAnswering: boolean) {
+    this.peerConnection.onicecandidate = async ({ candidate }) => {
       if (candidate) {
         console.log('Have Candidate', candidate);
-        this.supabaseService.updateCall({
-          ...this.currentCall,
-          iceCandidate: JSON.stringify(candidate),
-        });
+        console.log('current call', this.currentCall);
+        if(isOffering){
+          await this.supabaseService.updateCall({
+            ...this.currentCall,
+            offerCandidates: candidate,
+          });
+        }
+        if(isAnswering){
+          await this.supabaseService.updateCall({
+            ...this.currentCall,
+            answerCandidates: candidate,
+          });
+        }
       }
     };
   }
 
   listenOnRemoteTrack() {
-    console.log('Listen for remote tracks');
     const remoteVideo: any = document.querySelector('#remoteVideo');
     this.peerConnection.ontrack = async (event) => {
       console.log('Have tracks');
+      if(remoteVideo.srcObject){
+        console.log("Remote video already contains remote stream!");
+        return;
+      }
       remoteVideo.srcObject = event.streams[0];
     };
   }
@@ -167,15 +187,25 @@ export class CallComponent implements OnInit, OnDestroy {
   subscribeCallTable(){
     const handleUpdateCallCb = async (payload: any) => {
       const call = payload.new;
+      this.currentCall = call;
       if (call.callerId === this.userInfo.userId && call.answer) {
         console.log('Have answer!', call);
-        this.peerConnection.setRemoteDescription(JSON.parse(call.answer));
+        if(!this.haveAnswer){
+          this.haveAnswer = true;
+          await this.peerConnection.setRemoteDescription(JSON.parse(call.answer));
+        }
       }
       // Listen for remote ICE candidates and add them to the local RTCPeerConnection
-      if (call.iceCandidate) {
-        console.log('New ice Candidate', call);
+      if (call.callerId === this.userInfo.userId && call.answerCandidates) {
+        console.log('New answer ice Candidate', call);
         await this.peerConnection.addIceCandidate(
-          JSON.parse(call.iceCandidate)
+          JSON.parse(call.answerCandidates)
+        );
+      }
+      if(call.calleeId === this.userInfo.userId && call.offerCandidates){
+        console.log('New offer ice Candidate', call);
+        await this.peerConnection.addIceCandidate(
+          JSON.parse(call.answerCandidates)
         );
       }
     };
