@@ -166,10 +166,10 @@ export class CallComponent implements OnInit, OnDestroy {
     const remoteVideo: any = document.querySelector('#remoteVideo');
     this.peerConnection.ontrack = async (event) => {
       console.log('Have tracks');
-      if(remoteVideo.srcObject){
-        console.log("Remote video already contains remote stream!");
-        return;
-      }
+      // if(remoteVideo.srcObject){
+      //   console.log("Remote video already contains remote stream!");
+      //   return;
+      // }
       remoteVideo.srcObject = event.streams[0];
     };
   }
@@ -204,7 +204,7 @@ export class CallComponent implements OnInit, OnDestroy {
         console.log('New offer ice Candidate', call);
         try{
           await this.peerConnection.addIceCandidate(
-            JSON.parse(call.answerCandidates)
+            JSON.parse(call.offerCandidates)
           );
           if(this.pendingIceCandidates.length > 0){
             this.pendingIceCandidates.forEach( async (c) => {
@@ -213,7 +213,7 @@ export class CallComponent implements OnInit, OnDestroy {
           }
         }catch(e){
           console.log(e);
-          this.pendingIceCandidates.push(call.answerCandidates)
+          this.pendingIceCandidates.push(call.offerCandidates)
         }
       }
     };
