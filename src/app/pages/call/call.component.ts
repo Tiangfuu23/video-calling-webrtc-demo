@@ -16,8 +16,31 @@ export class CallComponent implements OnInit, OnDestroy {
     iceServers: [
       {
         urls: [
-          'stun:stun.l.google.com:19302',
+          'stun:stun.l.google.com:19302'
         ],
+      },
+      {
+        urls: "stun:stun.relay.metered.ca:80",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80",
+        username: "d94115f03e36380e7a50618d",
+        credential: "GmAF+cRTk3KpFck4",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:80?transport=tcp",
+        username: "d94115f03e36380e7a50618d",
+        credential: "GmAF+cRTk3KpFck4",
+      },
+      {
+        urls: "turn:global.relay.metered.ca:443",
+        username: "d94115f03e36380e7a50618d",
+        credential: "GmAF+cRTk3KpFck4",
+      },
+      {
+        urls: "turns:global.relay.metered.ca:443?transport=tcp",
+        username: "d94115f03e36380e7a50618d",
+        credential: "GmAF+cRTk3KpFck4",
       },
     ],
   };
