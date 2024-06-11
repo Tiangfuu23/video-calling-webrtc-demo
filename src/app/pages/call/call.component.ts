@@ -37,7 +37,7 @@ export class CallComponent implements OnInit, OnDestroy {
 
   // debug
   haveAnswer: boolean = false;
-  pendingIceCandidates: any[] = [];
+  // pendingIceCandidates: any[] = [];
   constructor(
     private supabaseService: SupabaseService,
     private messageService: MessageService,
@@ -52,7 +52,6 @@ export class CallComponent implements OnInit, OnDestroy {
     this.callStateService.getAuthData((call) => {
       this.call = call
       if(!call.isCalling) this.router.navigate(['/']);
-      this.pendingIceCandidates = [];
       this.peerConnection = new RTCPeerConnection(this.configuration);
       this.subscribeCallTable();
       if(call.callerUserId !== -1 && call.callerUserId === this.userInfo.userId) {
@@ -72,7 +71,6 @@ export class CallComponent implements OnInit, OnDestroy {
 
   async makeCall() {
     this.haveAnswer = false;
-    // this.peerConnection = new RTCPeerConnection(this.configuration);
     this.listenOnConnectionStateChange();
     this.initCamera();
     this.listenOnIceCandidate(true, false);
@@ -81,12 +79,11 @@ export class CallComponent implements OnInit, OnDestroy {
   }
   async handleIncomingCall(){
     this.currentCall = await this.supabaseService.getCallById(this.call.callId)
-    // this.peerConnection = new RTCPeerConnection(this.configuration);
     this.listenOnConnectionStateChange();
     this.initCamera();
-    this.listenOnRemoteTrack();
     this.listenOnIceCandidate(false, true);
     this.listenOnNegotiationNeededInCallee();
+    this.listenOnRemoteTrack();
   }
   async initCamera() {
     try {
@@ -118,8 +115,7 @@ export class CallComponent implements OnInit, OnDestroy {
           calleeId: this.call.calleeUserId,
           offer: JSON.stringify(offer)
         });
-        await this.peerConnection.setLocalDescription(offer);
-        console.log('CurrentCall', this.currentCall);
+        await this.peerConnection.setLocalDescription(offer); // trigger on ice candidate event
       } catch (err) {
         console.error(err);
       } finally {
@@ -137,26 +133,20 @@ export class CallComponent implements OnInit, OnDestroy {
         ...this.currentCall,
         answer: JSON.stringify(answer),
       });
-      await this.peerConnection.setLocalDescription(answer);
+      await this.peerConnection.setLocalDescription(answer); // trigger on ice candidate event
     };
   }
 
   listenOnIceCandidate(isOffering: boolean, isAnswering: boolean) {
     this.peerConnection.onicecandidate = async ({ candidate }) => {
       if (candidate) {
-        console.log('Have Candidate', candidate);
-        console.log('current call', this.currentCall);
         if(isOffering){
-          await this.supabaseService.updateCall({
-            ...this.currentCall,
-            offerCandidates: candidate,
-          });
+          this.currentCall.offerCandidates.push(candidate)
+          await this.supabaseService.updateCall(this.currentCall);
         }
         if(isAnswering){
-          await this.supabaseService.updateCall({
-            ...this.currentCall,
-            answerCandidates: candidate,
-          });
+          this.currentCall.answerCandidates.push(candidate);
+          await this.supabaseService.updateCall(this.currentCall);
         }
       }
     };
@@ -186,34 +176,22 @@ export class CallComponent implements OnInit, OnDestroy {
     const handleUpdateCallCb = async (payload: any) => {
       const call = payload.new;
       this.currentCall = call;
-      if (call.callerId === this.userInfo.userId && call.answer) {
+      console.log('catch an update in call table', this.currentCall);
+      if (call.callerId === this.userInfo.userId && call.answer && !this.haveAnswer) {
         console.log('Have answer!', call);
-        if(!this.haveAnswer){
-          this.haveAnswer = true;
-          await this.peerConnection.setRemoteDescription(JSON.parse(call.answer));
+        this.haveAnswer = true;
+        await this.peerConnection.setRemoteDescription(JSON.parse(call.answer));
+      }else if(call.callerId === this.userInfo.userId && call.answerCandidates){
+        console.log("New answer ice candidate", call.answerCandidates);
+        const candidatesList = call.answerCandidates;
+        for(let candidate of candidatesList){
+          await this.peerConnection.addIceCandidate(JSON.parse(candidate));
         }
-      }
-      // Listen for remote ICE candidates and add them to the local RTCPeerConnection
-      if (call.callerId === this.userInfo.userId && call.answerCandidates) {
-        console.log('New answer ice Candidate', call);
-        await this.peerConnection.addIceCandidate(
-          JSON.parse(call.answerCandidates)
-        );
-      }
-      if(call.calleeId === this.userInfo.userId && call.offerCandidates){
-        console.log('New offer ice Candidate', call);
-        try{
-          await this.peerConnection.addIceCandidate(
-            JSON.parse(call.offerCandidates)
-          );
-          if(this.pendingIceCandidates.length > 0){
-            this.pendingIceCandidates.forEach( async (c) => {
-              await this.peerConnection.addIceCandidate(JSON.parse(c));
-            })
-          }
-        }catch(e){
-          console.log(e);
-          this.pendingIceCandidates.push(call.offerCandidates)
+      }else if(call.calleeId === this.userInfo.userId && call.offerCandidates){
+        console.log('New offer ice Candidate', call.offerCandidates);
+        const candidatesList = call.answerCandidates;
+        for(let candidate of candidatesList){
+          await this.peerConnection.addIceCandidate(JSON.parse(candidate));
         }
       }
     };
