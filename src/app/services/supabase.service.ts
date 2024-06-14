@@ -18,10 +18,11 @@ interface CallEntity {
   id ?: number,
   callerId: number,
   calleeId: number,
-  offer: string,
+  offer ?: string,
   answer ?: string,
   offerCandidates?: string,
   answerCandidates?: string,
+  state?: number,
 }
 @Injectable({
   'providedIn': 'root'
@@ -51,9 +52,9 @@ export class SupabaseService {
   }
 
   async updateCall(callEntity: CallEntity){
-    console.log('Update call entity', callEntity);
+    // console.log('Update call entity', callEntity);
     const {data, error} = await this.supabase.from(CALL_TABLE).update(callEntity).eq('id', callEntity.id).select();
-    console.log('update call data & error', data, error);
+    // console.log('update call data & error', data, error);
     return data ? data[0] : null;
   }
 

@@ -5,7 +5,7 @@ import { CallComponent } from './pages/call/call.component';
 
 const routes: Routes = [
   {path: '', component: HomeComponent, pathMatch: 'full'},
-  {path: 'call', component: CallComponent, pathMatch: 'full'},
+  {path: 'call/:id', component: CallComponent, pathMatch: 'full'},
   {path: 'home', component: HomeComponent},
 ];
 

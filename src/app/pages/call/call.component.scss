@@ -1,0 +1,11 @@
+.container{
+  .video-container{
+    height: 90%;
+    video {
+      transform: scaleX(-1);
+    }
+  }
+  .controller-bar{
+    height: 10%;
+  }
+}

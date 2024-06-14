@@ -1,4 +1,19 @@
-<div class="container flex justify-content-around">
-  <video id="localVideo" autoplay playsInline [controls]="false" width="400px" height="400px"></video>
-  <video id="remoteVideo" autoplay playsInline [controls]="false" width="400px" height="400px"></video>
+<div class="container h-full" >
+  <ng-container *ngIf="isCalling">
+    <div class="video-container flex justify-content-around">
+      <video #localVideo autoplay playsInline [controls]="false" width="400px" height="400px"></video>
+      <video #remoteVideo id="remoteVideo" autoplay playsInline [controls]="false" width="400px" height="400px"></video>
+    </div>
+    <div class="controller-bar flex justify-content-center align-items-center">
+      <p-button icon="pi pi-phone" [rounded]="true" severity="danger" (onClick)="hangUpCall()"/>
+    </div>
+  </ng-container>
+  <ng-container *ngIf="!isCalling">
+    <div class="h-full flex justify-content-center align-items-center">
+      <span class="text-center">
+        <h2 class="text-600">Cuộc gọi đã kết thúc!</h2>
+        <p-button icon="pi pi-home" [rounded]="true" severity="success" [outlined]="true" (onClick)="navigateToHome()"/>
+      </span>
+    </div>
+  </ng-container>
 </div>

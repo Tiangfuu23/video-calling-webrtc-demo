@@ -5,6 +5,7 @@ import { IUser } from '../../model/user.model';
 import { CallStateService } from '../../shared/app-state/call-state.service';
 import { StorageKeys } from '../../shared/constants/constants.class';
 import { Router } from '@angular/router';
+import { Constant } from '../../shared/constants/constants.class';
 @Component({
   selector: 'app-home',
   templateUrl: './home.component.html',
@@ -22,6 +23,8 @@ export class HomeComponent implements OnInit, OnDestroy {
   };
   onlineUserList: IUser[] = [];
 
+  // call
+  currentCall : any;
   constructor(
     private supabaseService: SupabaseService,
     private messageService: MessageService,
@@ -32,6 +35,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.unsubscribeOnlineTrackingChannel();
     localStorage.clear();
+
   }
   ngOnDestroy(): void {}
 
@@ -92,8 +96,25 @@ export class HomeComponent implements OnInit, OnDestroy {
       callerUserId: this.userInfo.userId,
       calleeUserId: user.id
     })
-    this.router.navigate(['call']);
-    // window.open('/call', '_blank')?.focus();
+
+    this.currentCall = await this.supabaseService.createCall({
+      callerId: this.userInfo.userId,
+      calleeId: user.id
+    });
+    if(this.currentCall){
+      const call_window : Window | null = window.open(`/call/${this.currentCall.id}`, "_blank", "popup");
+      const timer = setInterval(() => {
+        if(call_window!.closed) {
+          console.log("Close");
+          this.hangUpCall();
+          clearInterval(timer);
+        }
+      }, 1000);
+    }else{
+      this.showErrorToast('Có lỗi xảy ra');
+    }
+
+    // this.router.navigate(['call']);
   }
 
   subscribeIncomingCall() {
@@ -101,16 +122,34 @@ export class HomeComponent implements OnInit, OnDestroy {
       console.log(payload);
       if (payload?.new?.calleeId === this.userInfo.userId) {
         console.log('You have a call!', payload);
-        this.callStateService.dispatch({
-          isCalling: true,
-          callId: payload.new.id,
-          callerUserId: payload.new.callerId,
-          calleeUserId: this.userInfo.userId
-        });
-        this.router.navigate(['call']);
+        this.currentCall = payload.new;
+        const call_window : Window | null = window.open(`/call/${payload.new.id}`, "_blank", "popup");
+        const timer = setInterval(() => {
+          if(call_window!.closed) {
+            console.log("Close");
+            this.hangUpCall();
+            clearInterval(timer);
+          }
+        }, 1000);
+
+        // this.callStateService.dispatch({
+        //   isCalling: true,
+        //   callId: payload.new.id,
+        //   callerUserId: payload.new.callerId,
+        //   calleeUserId: this.userInfo.userId
+        // });
+        // this.router.navigate(['call']);
       }
     };
 
     this.supabaseService.subscribeIncomingCall(handleIncomingCallCb);
+  }
+
+  // Hangup the call
+  async hangUpCall(){
+    await this.supabaseService.updateCall({
+      ...this.currentCall,
+      state: Constant.CALL_STATE.close
+    })
   }
 }
